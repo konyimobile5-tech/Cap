@@ -20,7 +20,7 @@
             background: #ef4444;
             cursor: pointer;
             box-shadow: 0 0 12px rgba(239, 68, 68, 0.6);
-            transition: transform 0.15 ease, background-color 0.15s ease;
+            transition: transform 0.15s ease, background-color 0.15s ease;
         }
         input[type=range]::-webkit-slider-thumb:hover {
             transform: scale(1.2);
@@ -35,7 +35,7 @@
             Capacitor Leakage Circuit Simulation
         </h1>
         <p class="text-slate-400 text-sm md:text-base mt-2">
-            Capacitor စိမ့်ထွက်မှု (Leaking) ကြောင့် ဂဏန်းပြ တန်ဖိုး လျော့နည်းသွားပုံ
+            Capacitor စိမ့်ထွက်မှု (Leaking) ကြောင့် ညာဘက်အထွက် တန်ဖိုး လျော့နည်းသွားပုံ
         </p>
     </header>
 
@@ -47,20 +47,9 @@
             <canvas id="circuitCanvas" class="w-full h-[320px] md:h-[380px] block"></canvas>
         </div>
 
-        <!-- Controls Grid -->
-        <div class="w-full grid grid-cols-1 md:grid-cols-2 gap-6 bg-slate-900/70 p-5 rounded-xl border border-slate-800">
+        <!-- Controls Section (Damage / Leakage Only) -->
+        <div class="w-full bg-slate-900/70 p-5 rounded-xl border border-slate-800">
             
-            <!-- Base Value Control -->
-            <div class="flex flex-col gap-2">
-                <label for="baseInput" class="text-sm font-semibold text-blue-400 flex items-center gap-2">
-                    <span class="w-3 h-3 rounded-full bg-blue-500"></span>
-                    Base Value (ဝင်ရောက်တန်ဖိုး):
-                </label>
-                <input type="number" id="baseInput" value="560" min="0" max="2000" step="10"
-                    class="w-full bg-slate-800 border border-slate-700 rounded-lg px-4 py-2 text-blue-300 font-bold focus:outline-none focus:border-blue-500 transition-colors">
-            </div>
-
-            <!-- Damage / Leakage Control -->
             <div class="flex flex-col gap-2">
                 <div class="flex justify-between items-center">
                     <label for="leakageSlider" class="text-sm font-semibold text-red-400 flex items-center gap-2">
@@ -75,7 +64,7 @@
                 <div class="flex items-center gap-3">
                     <input type="range" id="leakageSlider" min="0" max="560" value="200" step="5"
                         class="w-full h-2 bg-slate-700 rounded-lg appearance-none cursor-pointer">
-                    <input type="number" id="leakageInput" value="200" min="0" max="2000" step="5"
+                    <input type="number" id="leakageInput" value="200" min="0" max="560" step="5"
                         class="w-28 bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-red-400 font-bold focus:outline-none focus:border-red-500 transition-colors">
                 </div>
             </div>
@@ -99,7 +88,6 @@
         const canvas = document.getElementById('circuitCanvas');
         const ctx = canvas.getContext('2d');
 
-        const baseInput = document.getElementById('baseInput');
         const leakageSlider = document.getElementById('leakageSlider');
         const leakageInput = document.getElementById('leakageInput');
         const damagePercentageBadge = document.getElementById('damagePercentageBadge');
@@ -108,7 +96,8 @@
         const formulaLeakage = document.getElementById('formulaLeakage');
         const formulaOutput = document.getElementById('formulaOutput');
 
-        let baseValue = 560;
+        // Fixed Base Value
+        const baseValue = 560;
         let leakageValue = 200;
         let outputValue = 360;
 
@@ -140,15 +129,17 @@
         resizeCanvas();
 
         function updateCalculations() {
-            baseValue = parseFloat(baseInput.value) || 0;
             leakageValue = parseFloat(leakageInput.value) || 0;
             
-            // Adjust max range dynamically if base increases
-            leakageSlider.max = baseValue > 0 ? baseValue : 100;
-            
-            outputValue = Math.max(0, baseValue - leakageValue);
+            // Limit max leakage to baseValue
+            if (leakageValue > baseValue) {
+                leakageValue = baseValue;
+                leakageInput.value = baseValue;
+                leakageSlider.value = baseValue;
+            }
 
-            const damagePercent = baseValue > 0 ? ((leakageValue / baseValue) * 100).toFixed(1) : 0;
+            outputValue = Math.max(0, baseValue - leakageValue);
+            const damagePercent = ((leakageValue / baseValue) * 100).toFixed(1);
 
             // Update DOM Elements
             formulaBase.textContent = baseValue;
@@ -157,11 +148,7 @@
             damagePercentageBadge.textContent = `${damagePercent}% ပျက်`;
         }
 
-        // Event Listeners
-        baseInput.addEventListener('input', () => {
-            updateCalculations();
-        });
-
+        // Event Listeners for Leakage Controls
         leakageSlider.addEventListener('input', (e) => {
             leakageInput.value = e.target.value;
             updateCalculations();
@@ -329,7 +316,7 @@
             ctx.fillText(outputValue, lineEndX + 18, mainY);
 
             // --- 7. Draw Damage Percentage Badge on Top Right Canvas ---
-            const damagePercent = baseValue > 0 ? ((leakageValue / baseValue) * 100).toFixed(0) : 0;
+            const damagePercent = ((leakageValue / baseValue) * 100).toFixed(0);
             ctx.fillStyle = '#ef4444';
             ctx.font = 'bold 22px Inter, sans-serif';
             ctx.textAlign = 'right';
@@ -338,7 +325,7 @@
             // --- 8. Particle Animations ---
 
             // Main path particles (Input -> Output)
-            const outputFlowRatio = baseValue > 0 ? outputValue / baseValue : 0;
+            const outputFlowRatio = outputValue / baseValue;
 
             mainParticles.forEach(p => {
                 p.progress += p.speed;
@@ -362,7 +349,7 @@
 
             // Leakage path particles (Capacitor -> Ground)
             if (leakageValue > 0) {
-                const leakIntensity = Math.min(1, leakageValue / (baseValue || 1));
+                const leakIntensity = Math.min(1, leakageValue / baseValue);
                 const activeLeakParticles = Math.ceil(leakageParticles.length * leakIntensity);
 
                 for (let i = 0; i < activeLeakParticles; i++) {
